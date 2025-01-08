@@ -1,0 +1,13 @@
+# nas 配置
+nas:
+  url: 
+  mac: 
+  username: 
+  password: 
+
+# ip库
+ip2region:
+  path: 
+  maker_path: 
+  db_path:
+
