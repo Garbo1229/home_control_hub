@@ -3,11 +3,14 @@ package nas
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"home_control_hub/config"
 	"home_control_hub/internal/utils"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -62,6 +65,19 @@ func Shutdown(c *gin.Context) {
 	baseUrl := NasConfig.Url
 	user := NasConfig.Username
 	password := NasConfig.Password
+
+	host, port, err := ExtractHostPort(baseUrl)
+	if err != nil {
+		utils.Error(c, "关闭失败", err.Error())
+		return
+	}
+
+	err = CheckHostPort(host, port)
+	if err != nil {
+		utils.Error(c, "关闭失败", err.Error())
+		return
+	}
+
 	sid, err := login(baseUrl, user, password)
 	if err != nil {
 		utils.Error(c, "关闭失败", err.Error())
@@ -123,4 +139,30 @@ func encodePwd(in string) string {
 		y = append(y, c[B>>2], c[((B&3)<<4)|((z&240)>>4)], c[((z&15)<<2)|((x&192)>>6)], c[x&63])
 	}
 	return string(y)
+}
+
+// 检查指定的主机和端口是否开放
+func CheckHostPort(host string, port string) error {
+	address := net.JoinHostPort(host, port)
+	conn, err := net.DialTimeout("tcp", address, 5*time.Second) // 设置 5 秒超时时间
+	if err != nil {
+		return fmt.Errorf("连接 %s 失败: %v", address, err)
+	}
+	defer conn.Close()
+	return nil
+}
+
+// 从 URL 提取主机和端口
+func ExtractHostPort(inputURL string) (string, string, error) {
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		return "", "", fmt.Errorf("无效的 URL: %v", err)
+	}
+
+	host := parsedURL.Hostname() // 提取主机名
+	port := parsedURL.Port()     // 提取端口号
+	if port == "" {
+		return "", "", fmt.Errorf("未提供端口号")
+	}
+	return host, port, nil
 }
